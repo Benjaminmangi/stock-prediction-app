@@ -91,7 +91,7 @@ def main():
             
             else:  # Login
                 with st.form("login_form"):
-                    username = st.text_state.text_input("Username")
+                    username = st.text_input("Username")
                     password = st.text_input("Password", type="password")
                     
                     if st.form_submit_button("Login"):
