@@ -227,19 +227,18 @@ def main():
                             st.metric("Industry", stock_info['industry'])
                         if 'historical_data' in stock_info:
                             st.line_chart(stock_info['historical_data']['Close'])
+                            
+                        # Add news section
+                        st.subheader("Latest News")
+                        news_items = fetch_stock_news(search_symbol.upper())
+                        for news in news_items:
+                            with st.expander(news['title']):
+                                st.write(news['description'])
+                                st.write(f"[Read more]({news['url']})")
                     else:
                         st.error(f"Could not find data for {search_symbol}: {message}")
                 except Exception as e:
                     st.error(f"Error searching for stock: {str(e)}")
-
-        # Add news section
-        st.subheader("Latest News")
-        if stock_info:
-            news_items = fetch_stock_news(search_symbol.upper())
-            for news in news_items:
-                with st.expander(news['title']):
-                    st.write(news['description'])
-                    st.write(f"[Read more]({news['url']})")
 
     with tab2:
         st.header("Technical Analysis")
