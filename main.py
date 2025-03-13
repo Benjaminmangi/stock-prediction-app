@@ -210,131 +210,27 @@ def main():
         # Add a stock search section
         st.subheader("Search Stocks")
         search_symbol = st.text_input("Enter stock symbol (e.g., AAPL)")
-        if search_symbol:
-            stock_info, message = predictor.search_stock(search_symbol.upper())
-            
-            if stock_info:
-                # Display stock information
-                st.write(f"### {stock_info['name']} ({search_symbol.upper()})")
-                
-                # Create three columns for metrics
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Current Price", f"${stock_info['current_price']:.2f}")
-                
-                with col2:
-                    if isinstance(stock_info['pe_ratio'], (int, float)):
-                        st.metric("P/E Ratio", f"{stock_info['pe_ratio']:.2f}")
+        search_button = st.button("Search")
+
+        if search_button and search_symbol:
+            with st.spinner('Searching...'):
+                try:
+                    stock_info, message = predictor.search_stock(search_symbol.upper())
+                    if stock_info:
+                        st.write(f"### {stock_info['name']} ({search_symbol.upper()})")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Current Price", f"${stock_info['current_price']:.2f}")
+                        with col2:
+                            st.metric("Sector", stock_info['sector'])
+                        with col3:
+                            st.metric("Industry", stock_info['industry'])
+                        if 'historical_data' in stock_info:
+                            st.line_chart(stock_info['historical_data']['Close'])
                     else:
-                        st.metric("P/E Ratio", "N/A")
-                
-                with col3:
-                    if isinstance(stock_info['dividend_yield'], (int, float)):
-                        st.metric("Dividend Yield", f"{stock_info['dividend_yield']:.2%}")
-                    else:
-                        st.metric("Dividend Yield", "N/A")
-                
-                # Display sector and industry
-                st.write(f"**Sector:** {stock_info['sector']}")
-                st.write(f"**Industry:** {stock_info['industry']}")
-                
-                # Plot historical data
-                df = stock_info['historical_data']
-                
-                # Price chart
-                fig = go.Figure()
-                fig.add_trace(go.Candlestick(
-                    x=df.index,
-                    open=df['Open'],
-                    high=df['High'],
-                    low=df['Low'],
-                    close=df['Close'],
-                    name='Price'
-                ))
-                
-                fig.update_layout(
-                    title=f"{search_symbol} Stock Price History",
-                    yaxis_title="Price ($)",
-                    xaxis_title="Date"
-                )
-                
-                st.plotly_chart(fig)
-                
-                # Volume chart
-                volume_fig = go.Figure()
-                volume_fig.add_trace(go.Bar(
-                    x=df.index,
-                    y=df['Volume'],
-                    name='Volume'
-                ))
-                
-                volume_fig.update_layout(
-                    title=f"{search_symbol} Trading Volume",
-                    yaxis_title="Volume",
-                    xaxis_title="Date"
-                )
-                
-                st.plotly_chart(volume_fig)
-                
-                # Add prediction option
-                if st.button(f"Generate Prediction for {search_symbol}"):
-                    predictions, pred_message = predictor.predict_stock(
-                        search_symbol,
-                        st.session_state.preferences['prediction_timeframe']
-                    )
-                    
-                    if predictions:
-                        # Create prediction chart
-                        pred_fig = go.Figure()
-                        
-                        # Add actual price line
-                        pred_fig.add_trace(go.Scatter(
-                            x=[datetime.now().strftime('%Y-%m-%d')],
-                            y=[predictions['current_price']],
-                            name="Current Price",
-                            mode="markers+lines"
-                        ))
-                        
-                        # Add prediction line
-                        pred_fig.add_trace(go.Scatter(
-                            x=predictions['dates'],
-                            y=predictions['predicted_prices'],
-                            name="Predicted Price",
-                            mode="lines",
-                            line=dict(dash='dash')
-                        ))
-                        
-                        pred_fig.update_layout(
-                            title=f"{search_symbol} Price Prediction",
-                            xaxis_title="Date",
-                            yaxis_title="Price ($)"
-                        )
-                        
-                        st.plotly_chart(pred_fig)
-                        
-                        # Display prediction metrics
-                        st.write(f"Current Price: ${predictions['current_price']:.2f}")
-                        st.write(f"Predicted Price (7 days): ${predictions['predicted_prices'][-1]:.2f}")
-                        
-                        # Option to add to watched stocks
-                        if search_symbol not in st.session_state.preferences['watched_stocks']:
-                            if st.button("Add to Watched Stocks"):
-                                new_preferences = st.session_state.preferences
-                                new_preferences['watched_stocks'].append(search_symbol)
-                                success, message = db.update_preferences(
-                                    st.session_state.user_id,
-                                    new_preferences
-                                )
-                                if success:
-                                    st.success(f"Added {search_symbol} to your watched stocks!")
-                                    st.session_state.preferences = new_preferences
-                                else:
-                                    st.error(f"Failed to add stock: {message}")
-                    else:
-                        st.error(f"Could not generate predictions: {pred_message}")
-            else:
-                st.error(message)
+                        st.error(f"Could not find data for {search_symbol}: {message}")
+                except Exception as e:
+                    st.error(f"Error searching for stock: {str(e)}")
 
         # Add news section
         st.subheader("Latest News")

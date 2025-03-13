@@ -209,42 +209,27 @@ class StockPredictor:
     def search_stock(self, ticker_symbol):
         """Search and analyze any stock by ticker symbol"""
         try:
-            st.info(f"Fetching data for {ticker_symbol}...")
-            
-            # Get stock info using yfinance with retry
-            for attempt in range(self.max_retries):
-                try:
-                    stock = yf.Ticker(ticker_symbol)
-                    info = stock.info
-                    break
-                except Exception as e:
-                    if attempt == self.max_retries - 1:
-                        st.error(f"Could not fetch stock info: {str(e)}")
-                        info = {}
-                    time.sleep(2)
-            
-            # Get historical data
+            # Get stock data
             df = self.get_stock_data(ticker_symbol)
             
             if df.empty:
                 return None, "No data available for this stock"
 
+            # Get current price and basic info
+            current_price = df['Close'].iloc[-1]
+            
             # Basic stock information
             stock_info = {
-                'name': info.get('longName', ticker_symbol),
-                'sector': info.get('sector', 'N/A'),
-                'industry': info.get('industry', 'N/A'),
-                'current_price': info.get('currentPrice', df['Close'].iloc[-1]),
-                'market_cap': info.get('marketCap', 'N/A'),
-                'pe_ratio': info.get('trailingPE', 'N/A'),
-                'dividend_yield': info.get('dividendYield', 'N/A'),
+                'name': ticker_symbol,
+                'sector': 'N/A',  # You can add more detailed info if available
+                'industry': 'N/A',
+                'current_price': current_price,
                 'historical_data': df
             }
 
             return stock_info, "Success"
             
         except Exception as e:
-            st.error(f"Error in stock search: {str(e)}")
             return None, f"Error searching stock: {str(e)}"
 
     def calculate_technical_indicators(self, df):
