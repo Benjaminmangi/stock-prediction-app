@@ -38,3 +38,4 @@ streamlit run main.py
 - TensorFlow
 - Pandas
 - YFinance
+  link to my website= https://stock-prediction-app-bluh4xwbqbfyzfnnj9oen7.streamlit.app/#sector-performance

@@ -8,3 +8,5 @@ plotly
 werkzeug
 pandas_datareader
 requests
+newsapi-python
+xlsxwriter
