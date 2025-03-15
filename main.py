@@ -98,13 +98,13 @@ def main():
                         success, message = db.create_user(new_username, new_password, preferences)
                         if success:
                             st.success(message)
-                            # Automatically log in the user
+                            # Set session state variables directly
                             success, user_data = db.authenticate_user(new_username, new_password)
                             if success:
                                 st.session_state.logged_in = True
                                 st.session_state.user_id = user_data['user_id']
                                 st.session_state.preferences = user_data['preferences']
-                                st.rerun()
+                                st.success("Account created and logged in successfully!")
                         else:
                             st.error(message)
             
@@ -120,7 +120,6 @@ def main():
                             st.session_state.user_id = user_data['user_id']
                             st.session_state.preferences = user_data['preferences']
                             st.success("Logged in successfully!")
-                            st.rerun()
                         else:
                             st.error("Invalid username or password")
         
