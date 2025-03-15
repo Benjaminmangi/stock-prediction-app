@@ -51,6 +51,9 @@ class Database:
 
     def create_user(self, username, password, preferences=None):
         """Create a new user"""
+        if not username or not password:
+            return False, "Username and password are required"
+            
         conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
         
@@ -77,39 +80,54 @@ class Database:
                 ))
             
             conn.commit()
+            print(f"User created successfully: {username} with ID {user_id}")  # Debug log
             return True, "User created successfully"
             
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as e:
+            print(f"Error creating user: {str(e)}")  # Debug log
             return False, "Username already exists"
+        except Exception as e:
+            print(f"Unexpected error creating user: {str(e)}")  # Debug log
+            return False, f"Error creating user: {str(e)}"
         finally:
             conn.close()
 
     def authenticate_user(self, username, password):
         """Authenticate user"""
+        if not username or not password:
+            return False, "Username and password are required"
+            
         conn = sqlite3.connect(self.db_name)
         c = conn.cursor()
         
-        c.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
-        result = c.fetchone()
-        
-        if result and check_password_hash(result[1], password):
-            user_id = result[0]
+        try:
+            c.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
+            result = c.fetchone()
             
-            # Get user preferences
-            c.execute('SELECT * FROM user_preferences WHERE user_id = ?', (user_id,))
-            pref_result = c.fetchone()
+            if result and check_password_hash(result[1], password):
+                user_id = result[0]
+                
+                # Get user preferences
+                c.execute('SELECT * FROM user_preferences WHERE user_id = ?', (user_id,))
+                pref_result = c.fetchone()
+                
+                preferences = {
+                    'watched_stocks': json.loads(pref_result[1]) if pref_result else [],
+                    'preferred_sectors': json.loads(pref_result[2]) if pref_result else [],
+                    'prediction_timeframe': pref_result[3] if pref_result else 7
+                }
+                
+                print(f"User authenticated successfully: {username}")  # Debug log
+                return True, {'user_id': user_id, 'preferences': preferences}
             
-            preferences = {
-                'watched_stocks': json.loads(pref_result[1]),
-                'preferred_sectors': json.loads(pref_result[2]),
-                'prediction_timeframe': pref_result[3]
-            } if pref_result else {}
+            print(f"Authentication failed for user: {username}")  # Debug log
+            return False, "Invalid username or password"
             
+        except Exception as e:
+            print(f"Error during authentication: {str(e)}")  # Debug log
+            return False, f"Error during authentication: {str(e)}"
+        finally:
             conn.close()
-            return True, {'user_id': user_id, 'preferences': preferences}
-        
-        conn.close()
-        return False, "Invalid username or password"
 
     def update_preferences(self, user_id, preferences):
         """Update user preferences"""

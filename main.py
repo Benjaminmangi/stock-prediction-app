@@ -96,7 +96,17 @@ def main():
                         }
                         
                         success, message = db.create_user(new_username, new_password, preferences)
-                        st.write(message)
+                        if success:
+                            st.success(message)
+                            # Automatically log in the user
+                            success, user_data = db.authenticate_user(new_username, new_password)
+                            if success:
+                                st.session_state.logged_in = True
+                                st.session_state.user_id = user_data['user_id']
+                                st.session_state.preferences = user_data['preferences']
+                                st.rerun()
+                        else:
+                            st.error(message)
             
             else:  # Login
                 with st.form("login_form"):
