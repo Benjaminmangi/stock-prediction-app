@@ -254,8 +254,222 @@ def main():
         # Add technical indicators
         analysis_type = st.selectbox(
             "Select Analysis Type",
-            ["Moving Averages", "RSI", "MACD", "Bollinger Bands"]
+            ["Moving Averages", "RSI", "MACD", "Bollinger Bands", "Volume Analysis", "ATR"]
         )
+        
+        # Stock selection for technical analysis
+        selected_stock = st.selectbox(
+            "Select Stock",
+            list(STOCK_SYMBOLS.keys())
+        )
+        
+        if selected_stock:
+            symbol = STOCK_SYMBOLS[selected_stock]
+            df = predictor.get_stock_data(symbol)
+            
+            if not df.empty:
+                # Calculate technical indicators
+                df = predictor.calculate_technical_indicators(df)
+                
+                if analysis_type == "Moving Averages":
+                    st.subheader("Moving Averages Analysis")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name='Close Price'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], name='20-day MA'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['MA50'], name='50-day MA'))
+                    fig.update_layout(title=f"{selected_stock} Moving Averages",
+                                   xaxis_title="Date",
+                                   yaxis_title="Price")
+                    st.plotly_chart(fig)
+                    
+                    # Display current MA values
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("20-day MA", f"${df['MA20'].iloc[-1]:.2f}")
+                    with col2:
+                        st.metric("50-day MA", f"${df['MA50'].iloc[-1]:.2f}")
+                
+                elif analysis_type == "RSI":
+                    st.subheader("Relative Strength Index (RSI) Analysis")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI'))
+                    fig.add_hline(y=70, line_dash="dash", line_color="red")
+                    fig.add_hline(y=30, line_dash="dash", line_color="green")
+                    fig.update_layout(title=f"{selected_stock} RSI",
+                                   xaxis_title="Date",
+                                   yaxis_title="RSI")
+                    st.plotly_chart(fig)
+                    
+                    # Display current RSI value and interpretation
+                    current_rsi = df['RSI'].iloc[-1]
+                    st.metric("Current RSI", f"{current_rsi:.2f}")
+                    if current_rsi > 70:
+                        st.warning("Overbought condition - Consider selling")
+                    elif current_rsi < 30:
+                        st.success("Oversold condition - Consider buying")
+                    else:
+                        st.info("Neutral condition")
+                
+                elif analysis_type == "MACD":
+                    st.subheader("MACD Analysis")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Signal_Line'], name='Signal Line'))
+                    fig.update_layout(title=f"{selected_stock} MACD",
+                                   xaxis_title="Date",
+                                   yaxis_title="MACD")
+                    st.plotly_chart(fig)
+                    
+                    # Display current MACD values
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("MACD", f"{df['MACD'].iloc[-1]:.2f}")
+                    with col2:
+                        st.metric("Signal Line", f"{df['Signal_Line'].iloc[-1]:.2f}")
+                    
+                    # MACD interpretation
+                    if df['MACD'].iloc[-1] > df['Signal_Line'].iloc[-1]:
+                        st.success("Bullish signal - MACD above Signal Line")
+                    else:
+                        st.warning("Bearish signal - MACD below Signal Line")
+                
+                elif analysis_type == "Bollinger Bands":
+                    st.subheader("Bollinger Bands Analysis")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name='Close Price'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['BB_upper'], name='Upper Band'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['BB_middle'], name='Middle Band'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['BB_lower'], name='Lower Band'))
+                    fig.update_layout(title=f"{selected_stock} Bollinger Bands",
+                                   xaxis_title="Date",
+                                   yaxis_title="Price")
+                    st.plotly_chart(fig)
+                    
+                    # Display current Bollinger Bands values
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Upper Band", f"${df['BB_upper'].iloc[-1]:.2f}")
+                    with col2:
+                        st.metric("Middle Band", f"${df['BB_middle'].iloc[-1]:.2f}")
+                    with col3:
+                        st.metric("Lower Band", f"${df['BB_lower'].iloc[-1]:.2f}")
+                    
+                    # Bollinger Bands interpretation
+                    current_price = df['Close'].iloc[-1]
+                    if current_price > df['BB_upper'].iloc[-1]:
+                        st.warning("Overbought condition - Price above upper band")
+                    elif current_price < df['BB_lower'].iloc[-1]:
+                        st.success("Oversold condition - Price below lower band")
+                    else:
+                        st.info("Price within normal range")
+                
+                elif analysis_type == "Volume Analysis":
+                    st.subheader("Volume Analysis")
+                    
+                    # Create volume chart
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=df.index, y=df['Volume'], name='Volume'))
+                    fig.update_layout(
+                        title=f"{selected_stock} Trading Volume",
+                        xaxis_title="Date",
+                        yaxis_title="Volume"
+                    )
+                    st.plotly_chart(fig)
+                    
+                    # Calculate volume metrics
+                    avg_volume = df['Volume'].mean()
+                    current_volume = df['Volume'].iloc[-1]
+                    volume_ma20 = df['Volume'].rolling(window=20).mean().iloc[-1]
+                    
+                    # Display volume metrics
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Current Volume", f"{current_volume:,.0f}")
+                    with col2:
+                        st.metric("20-day Avg Volume", f"{volume_ma20:,.0f}")
+                    with col3:
+                        st.metric("Average Volume", f"{avg_volume:,.0f}")
+                    
+                    # Volume analysis interpretation
+                    volume_ratio = current_volume / volume_ma20
+                    if volume_ratio > 1.5:
+                        st.success("High volume - Strong trading activity")
+                    elif volume_ratio < 0.5:
+                        st.warning("Low volume - Weak trading activity")
+                    else:
+                        st.info("Normal volume - Average trading activity")
+                    
+                    # Add volume trend chart
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Volume'].rolling(window=20).mean(), 
+                                           name='20-day Volume MA'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Volume'].rolling(window=50).mean(), 
+                                           name='50-day Volume MA'))
+                    fig.update_layout(
+                        title=f"{selected_stock} Volume Moving Averages",
+                        xaxis_title="Date",
+                        yaxis_title="Volume"
+                    )
+                    st.plotly_chart(fig)
+                
+                elif analysis_type == "ATR":
+                    st.subheader("Average True Range (ATR) Analysis")
+                    
+                    # Calculate ATR
+                    high = df['High']
+                    low = df['Low']
+                    close = df['Close']
+                    
+                    tr1 = high - low
+                    tr2 = abs(high - close.shift())
+                    tr3 = abs(low - close.shift())
+                    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+                    atr = tr.rolling(window=14).mean()
+                    
+                    # Create ATR chart
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=atr, name='ATR'))
+                    fig.update_layout(
+                        title=f"{selected_stock} Average True Range",
+                        xaxis_title="Date",
+                        yaxis_title="ATR"
+                    )
+                    st.plotly_chart(fig)
+                    
+                    # Display ATR metrics
+                    current_atr = atr.iloc[-1]
+                    current_price = df['Close'].iloc[-1]
+                    atr_percentage = (current_atr / current_price) * 100
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Current ATR", f"${current_atr:.2f}")
+                    with col2:
+                        st.metric("ATR % of Price", f"{atr_percentage:.2f}%")
+                    
+                    # ATR interpretation
+                    if atr_percentage > 3:
+                        st.warning("High volatility - Consider reducing position size")
+                    elif atr_percentage < 1:
+                        st.info("Low volatility - Market is relatively stable")
+                    else:
+                        st.success("Moderate volatility - Normal market conditions")
+                    
+                    # Add ATR bands to price chart
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name='Close Price'))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'] + atr, name='Upper ATR Band',
+                                           line=dict(dash='dash')))
+                    fig.add_trace(go.Scatter(x=df.index, y=df['Close'] - atr, name='Lower ATR Band',
+                                           line=dict(dash='dash')))
+                    fig.update_layout(
+                        title=f"{selected_stock} Price with ATR Bands",
+                        xaxis_title="Date",
+                        yaxis_title="Price"
+                    )
+                    st.plotly_chart(fig)
+            else:
+                st.error(f"Could not fetch data for {selected_stock}")
 
     with tab3:
         st.header("My Portfolio")
