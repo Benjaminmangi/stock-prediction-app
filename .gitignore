@@ -1,3 +1,7 @@
+# Database files
+data/stock_predictions.db
+*.db
+
 # Python
 __pycache__/
 *.py[cod]
@@ -16,6 +20,7 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
