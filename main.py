@@ -110,7 +110,7 @@ def main():
                             st.session_state.user_id = user_data['user_id']
                             st.session_state.preferences = user_data['preferences']
                             st.success("Logged in successfully!")
-                            st.experimental_rerun()
+                            st.rerun()
                         else:
                             st.error("Invalid username or password")
         
@@ -124,7 +124,7 @@ def main():
                     'preferred_sectors': [],
                     'prediction_timeframe': 7
                 }
-                st.experimental_rerun()
+                st.rerun()
 
     # Add a modern sidebar with categories
     st.sidebar.title("📈 Stock Categories")
