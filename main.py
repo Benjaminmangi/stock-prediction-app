@@ -10,6 +10,22 @@ import requests
 import pandas as pd
 from io import BytesIO
 
+# Dictionary to map stock names to their ticker symbols
+STOCK_SYMBOLS = {
+    'Apple': 'AAPL',
+    'Google': 'GOOGL',
+    'Microsoft': 'MSFT',
+    'NVIDIA': 'NVDA',
+    'META Platforms': 'META',
+    'IBM': 'IBM',
+    'Adobe': 'ADBE',
+    'Johnson&Johnson': 'JNJ',
+    'Verizon': 'VZ',
+    'United Health Group': 'UNH',
+    'AT&T': 'T',
+    'UPS': 'UPS'
+}
+
 def main():
     st.title("Stock Market Prediction System")
     
