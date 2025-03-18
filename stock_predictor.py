@@ -13,6 +13,7 @@ class StockPredictor:
     def __init__(self):
         self.scaler = MinMaxScaler()
         self.model = None
+        self.models = {}  # Initialize models dictionary
         self.look_back = 60
         self.stock_categories = {
             'Technology': ['MSFT', 'GOOGL', 'AAPL', 'IBM'],
@@ -76,51 +77,56 @@ class StockPredictor:
         
         self.model.fit(X, y, epochs=25, batch_size=32, verbose=0)
     
-    def predict_stock(self, symbol, days=7):
-        """Predict stock prices for the next n days"""
+    def predict_stock(self, symbol, days_ahead=7):
+        """Generate predictions for a specific stock"""
         try:
-            # Get historical data
+            # Get recent data
             df = self.get_stock_data(symbol)
             if df.empty:
-                return None, "Could not fetch historical data"
-            
-            # Prepare data
-            X, y = self.prepare_data(df)
+                return None, f"No data available for {symbol}"
+
+            # Ensure we have enough data
+            if len(df) < self.look_back:
+                return None, f"Insufficient historical data for {symbol}"
+
+            # Prepare data for prediction
+            X, y = self.prepare_data(df, self.look_back)
             if len(X) == 0:
                 return None, "Insufficient data for prediction"
-            
-            # Train model
-            self.train_model(X, y)
-            
-            # Prepare last 60 days of data for prediction
-            last_60_days = df['Close'].values[-60:]
-            last_60_days_scaled = self.scaler.transform(last_60_days.reshape(-1, 1))
-            
+
+            # Create and train model if not exists
+            if symbol not in self.models:
+                self.build_model()
+                self.train_model(X, y)
+                self.models[symbol] = self.model
+
+            # Get the model for this symbol
+            model = self.models[symbol]
+
+            # Prepare last sequence for prediction
+            last_sequence = X[-1:]
+
             # Generate predictions
             predictions = []
-            current_batch = last_60_days_scaled.reshape((1, 60, 1))
-            
-            for _ in range(days):
-                current_pred = self.model.predict(current_batch)[0]
-                predictions.append(current_pred[0])
-                current_batch = np.append(current_batch[:, 1:, :], 
-                                        [[current_pred]], axis=1)
-            
+            for _ in range(days_ahead):
+                pred = model.predict(last_sequence)
+                predictions.append(pred[0][0])
+                # Update sequence for next prediction
+                last_sequence = np.roll(last_sequence, -1)
+                last_sequence[0][-1] = pred[0][0]
+
             # Inverse transform predictions
             predictions = self.scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
             
-            # Generate dates for predictions
-            last_date = df.index[-1]
-            prediction_dates = [last_date + timedelta(days=x+1) for x in range(days)]
-            
             return {
-                'current_price': df['Close'].iloc[-1],
-                'predicted_prices': predictions.flatten(),
-                'dates': prediction_dates
-            }, None
-            
+                'current_price': float(df['Close'].iloc[-1]),
+                'predicted_prices': [float(p[0]) for p in predictions],
+                'dates': [(datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d') 
+                         for i in range(days_ahead)]
+            }, "Success"
+
         except Exception as e:
-            return None, f"Error making prediction: {str(e)}"
+            return None, f"Error in prediction: {str(e)}"
     
     def calculate_technical_indicators(self, df):
         """Calculate technical indicators"""
@@ -260,53 +266,6 @@ class StockPredictor:
             st.error(f"Alternative source failed: {str(e)}")
         
         return pd.DataFrame()  # Return empty DataFrame if all attempts fail
-
-    def predict_stock(self, symbol, days_ahead=7):
-        """Generate predictions for a specific stock"""
-        try:
-            # Get recent data
-            df = self.get_stock_data(symbol)
-            if df.empty:
-                return None, f"No data available for {symbol}"
-
-            # Ensure we have enough data
-            if len(df) < self.look_back:
-                return None, f"Insufficient historical data for {symbol}"
-
-            # Prepare data for prediction
-            X, scaler = self.prepare_data(df, self.look_back)
-            if len(X) == 0:
-                return None, "Insufficient data for prediction"
-
-            # Make prediction
-            model = self.models.get(symbol)
-            if model is None:
-                # If no pre-trained model exists, use a similar sector model or basic prediction
-                return self.basic_prediction(df, days_ahead)
-
-            predictions = []
-            last_sequence = X[-1:]
-
-            # Generate predictions for specified number of days
-            for _ in range(days_ahead):
-                pred = model.predict(last_sequence)
-                predictions.append(pred[0][0])
-                # Update sequence for next prediction
-                last_sequence = np.roll(last_sequence, -1)
-                last_sequence[0][-1] = pred[0][0]
-
-            # Inverse transform predictions
-            predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
-            
-            return {
-                'current_price': float(df['Close'].iloc[-1]),
-                'predicted_prices': [float(p[0]) for p in predictions],
-                'dates': [(datetime.now() + timedelta(days=i+1)).strftime('%Y-%m-%d') 
-                         for i in range(days_ahead)]
-            }, "Success"
-
-        except Exception as e:
-            return None, f"Error in prediction: {str(e)}"
 
     def basic_prediction(self, df, days_ahead):
         """Basic prediction when no model is available"""
