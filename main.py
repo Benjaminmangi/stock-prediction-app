@@ -169,13 +169,15 @@ def main():
         with col1:
             selected_stock = st.selectbox(
                 "Select Stock",
-                list(STOCK_SYMBOLS.keys())
+                list(STOCK_SYMBOLS.keys()),
+                key="prediction_stock_select"
             )
         with col2:
             prediction_date = st.date_input(
                 "Select Prediction Date",
                 min_value=datetime.now().date(),
-                value=datetime.now().date() + timedelta(days=7)
+                value=datetime.now().date() + timedelta(days=7),
+                key="prediction_date_select"
             )
         
         # Calculate days ahead for prediction
@@ -346,13 +348,15 @@ def main():
         # Add technical indicators
         analysis_type = st.selectbox(
             "Select Analysis Type",
-            ["Moving Averages", "RSI", "MACD", "Bollinger Bands", "Volume Analysis", "ATR"]
+            ["Moving Averages", "RSI", "MACD", "Bollinger Bands", "Volume Analysis", "ATR"],
+            key="analysis_type_select"
         )
         
         # Stock selection for technical analysis
         selected_stock = st.selectbox(
             "Select Stock",
-            list(STOCK_SYMBOLS.keys())
+            list(STOCK_SYMBOLS.keys()),
+            key="analysis_stock_select"
         )
         
         if selected_stock:
