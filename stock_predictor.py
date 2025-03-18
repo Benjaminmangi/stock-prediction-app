@@ -36,7 +36,7 @@ class StockPredictor:
             print(f"Error fetching data for {symbol}: {str(e)}")
             return pd.DataFrame()
     
-    def prepare_data(self, df):
+    def prepare_data(self, df, look_back=60):
         """Prepare data for LSTM model"""
         # Use only the 'Close' prices
         data = df['Close'].values.reshape(-1, 1)
@@ -46,14 +46,14 @@ class StockPredictor:
         
         # Create sequences for LSTM
         X, y = [], []
-        for i in range(60, len(scaled_data)):
-            X.append(scaled_data[i-60:i, 0])
+        for i in range(look_back, len(scaled_data)):
+            X.append(scaled_data[i-look_back:i, 0])
             y.append(scaled_data[i, 0])
         
         X, y = np.array(X), np.array(y)
         X = np.reshape(X, (X.shape[0], X.shape[1], 1))
         
-        return X, y
+        return X, y, self.scaler
     
     def build_model(self):
         """Build LSTM model"""
@@ -85,7 +85,7 @@ class StockPredictor:
                 return None, "Could not fetch historical data"
             
             # Prepare data
-            X, y = self.prepare_data(df)
+            X, y, scaler = self.prepare_data(df)
             if len(X) == 0:
                 return None, "Insufficient data for prediction"
             
@@ -94,7 +94,7 @@ class StockPredictor:
             
             # Prepare last 60 days of data for prediction
             last_60_days = df['Close'].values[-60:]
-            last_60_days_scaled = self.scaler.transform(last_60_days.reshape(-1, 1))
+            last_60_days_scaled = scaler.transform(last_60_days.reshape(-1, 1))
             
             # Generate predictions
             predictions = []
@@ -107,7 +107,7 @@ class StockPredictor:
                                         [[current_pred]], axis=1)
             
             # Inverse transform predictions
-            predictions = self.scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
+            predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
             
             # Generate dates for predictions
             last_date = df.index[-1]
