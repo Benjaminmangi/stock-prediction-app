@@ -163,6 +163,82 @@ def main():
 
     with tab1:
         st.header("Stock Predictions")
+        
+        # Add stock and date selection
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_stock = st.selectbox(
+                "Select Stock",
+                list(STOCK_SYMBOLS.keys())
+            )
+        with col2:
+            prediction_date = st.date_input(
+                "Select Prediction Date",
+                min_value=datetime.now().date(),
+                value=datetime.now().date() + timedelta(days=7)
+            )
+        
+        # Calculate days ahead for prediction
+        days_ahead = (prediction_date - datetime.now().date()).days
+        
+        if selected_stock and prediction_date:
+            symbol = STOCK_SYMBOLS[selected_stock]
+            st.write(f"### {selected_stock} ({symbol})")
+            
+            # Generate predictions
+            predictions, message = predictor.predict_stock(symbol, days_ahead)
+            
+            if predictions:
+                # Create price prediction chart
+                fig = go.Figure()
+                
+                # Add actual price line
+                fig.add_trace(go.Scatter(
+                    x=[datetime.now().strftime('%Y-%m-%d')],
+                    y=[predictions['current_price']],
+                    name="Current Price",
+                    mode="markers+lines"
+                ))
+                
+                # Add prediction line
+                fig.add_trace(go.Scatter(
+                    x=predictions['dates'],
+                    y=predictions['predicted_prices'],
+                    name="Predicted Price",
+                    mode="lines",
+                    line=dict(dash='dash')
+                ))
+                
+                fig.update_layout(
+                    title=f"{selected_stock} Price Prediction until {prediction_date}",
+                    xaxis_title="Date",
+                    yaxis_title="Price ($)"
+                )
+                
+                st.plotly_chart(fig)
+                
+                # Display prediction metrics
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Current Price", f"${predictions['current_price']:.2f}")
+                with col2:
+                    st.metric(
+                        f"Predicted Price ({prediction_date})",
+                        f"${predictions['predicted_prices'][-1]:.2f}"
+                    )
+                
+                # Calculate and display price change
+                price_change = predictions['predicted_prices'][-1] - predictions['current_price']
+                price_change_pct = (price_change / predictions['current_price']) * 100
+                
+                st.metric(
+                    "Predicted Price Change",
+                    f"${price_change:.2f} ({price_change_pct:.2f}%)",
+                    delta=f"{price_change_pct:.2f}%"
+                )
+            else:
+                st.error(f"Could not generate predictions for {selected_stock}: {message}")
+        
         # Display user's watched stocks
         st.subheader("Your Watched Stocks")
         
