@@ -2,12 +2,13 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from datetime import datetime, timedelta
 import streamlit as st
 from requests.exceptions import RequestException
 import time
+import os
 
 class StockPredictor:
     def __init__(self):
@@ -27,16 +28,50 @@ class StockPredictor:
         # Load models lazily (only when needed) instead of all at once
         st.write("Stock predictor ready")  # Debug message
 
-    def get_stock_data(self, symbol, days=365):
-        """Fetch historical stock data"""
+    def get_stock_data(self, symbol, days=100):
+        """Get recent stock data using yfinance with retries"""
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        for attempt in range(self.max_retries):
+            try:
+                stock = yf.Ticker(symbol)
+                df = stock.history(
+                    start=start_date.strftime('%Y-%m-%d'),
+                    end=end_date.strftime('%Y-%m-%d'),
+                    interval='1d',
+                    timeout=self.timeout
+                )
+                
+                if not df.empty:
+                    return df
+                
+                st.warning(f"Attempt {attempt + 1}: No data found for {symbol}, retrying...")
+                time.sleep(2)  # Wait 2 seconds between attempts
+                
+            except Exception as e:
+                st.warning(f"Attempt {attempt + 1} failed: {str(e)}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(2)  # Wait before retrying
+                continue
+        
+        # If all attempts fail, try alternative data source
         try:
-            stock = yf.Ticker(symbol)
-            df = stock.history(period=f"{days}d")
-            return df
+            st.info("Trying alternative data source...")
+            # Using pandas_datareader as backup
+            import pandas_datareader as pdr
+            df = pdr.get_data_yahoo(
+                symbol,
+                start=start_date,
+                end=end_date
+            )
+            if not df.empty:
+                return df
         except Exception as e:
-            print(f"Error fetching data for {symbol}: {str(e)}")
-            return pd.DataFrame()
-    
+            st.error(f"Alternative source failed: {str(e)}")
+        
+        return pd.DataFrame()  # Return empty DataFrame if all attempts fail
+
     def prepare_data(self, df, look_back=60):
         """Prepare data for LSTM model"""
         # Use only the 'Close' prices
@@ -157,20 +192,11 @@ class StockPredictor:
     
     def get_category_performance(self, category):
         """Get performance metrics for stocks in a category"""
-        # Define category stocks (you can expand this)
-        category_stocks = {
-            'Technology': ['AAPL', 'MSFT', 'GOOGL', 'NVDA'],
-            'Software': ['ADBE', 'META', 'IBM'],
-            'Healthcare': ['JNJ', 'UNH'],
-            'Telecommunications': ['T', 'VZ'],
-            'Services': ['UPS']
-        }
-        
-        if category not in category_stocks:
+        if category not in self.stock_categories:
             return {}
         
         performance = {}
-        for symbol in category_stocks[category]:
+        for symbol in self.stock_categories[category]:
             try:
                 df = self.get_stock_data(symbol, days=30)
                 if not df.empty:
@@ -222,50 +248,6 @@ class StockPredictor:
                 st.error(f"Error loading model for {symbol}: {str(e)}")
                 return False
         return True
-
-    def get_stock_data(self, symbol, days=100):
-        """Get recent stock data using yfinance with retries"""
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        
-        for attempt in range(self.max_retries):
-            try:
-                stock = yf.Ticker(symbol)
-                df = stock.history(
-                    start=start_date.strftime('%Y-%m-%d'),
-                    end=end_date.strftime('%Y-%m-%d'),
-                    interval='1d',
-                    timeout=self.timeout
-                )
-                
-                if not df.empty:
-                    return df
-                
-                st.warning(f"Attempt {attempt + 1}: No data found for {symbol}, retrying...")
-                time.sleep(2)  # Wait 2 seconds between attempts
-                
-            except Exception as e:
-                st.warning(f"Attempt {attempt + 1} failed: {str(e)}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(2)  # Wait before retrying
-                continue
-        
-        # If all attempts fail, try alternative data source
-        try:
-            st.info("Trying alternative data source...")
-            # Using pandas_datareader as backup
-            import pandas_datareader as pdr
-            df = pdr.get_data_yahoo(
-                symbol,
-                start=start_date,
-                end=end_date
-            )
-            if not df.empty:
-                return df
-        except Exception as e:
-            st.error(f"Alternative source failed: {str(e)}")
-        
-        return pd.DataFrame()  # Return empty DataFrame if all attempts fail
 
     def basic_prediction(self, df, days_ahead):
         """Basic prediction when no model is available"""
