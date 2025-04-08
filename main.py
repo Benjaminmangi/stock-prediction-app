@@ -27,7 +27,7 @@ STOCK_SYMBOLS = {
 }
 
 def main():
-    st.title("Stock Market Prediction System")
+    st.title("Stock Market Prediction ")
     
     # Initialize session state
     if 'logged_in' not in st.session_state:
