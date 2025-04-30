@@ -9,6 +9,7 @@ import streamlit as st
 from requests.exceptions import RequestException
 import time
 import os
+import random
 
 class StockPredictor:
     def __init__(self):
@@ -23,18 +24,38 @@ class StockPredictor:
             'Telecommunications': ['T', 'VZ'],
             'Services': ['UPS']
         }
-        self.max_retries = 3
-        self.timeout = 10  # reduced timeout
-        # Load models lazily (only when needed) instead of all at once
+        self.max_retries = 5  # Increased max retries
+        self.timeout = 10
+        self.base_delay = 2  # Base delay in seconds
+        self.max_delay = 60  # Maximum delay in seconds
+        self.request_timestamps = {}  # Track request timestamps
+        self.min_request_interval = 2  # Minimum seconds between requests
         st.write("Stock predictor ready")  # Debug message
 
     def get_stock_data(self, symbol, days=100):
-        """Get recent stock data using yfinance with retries"""
+        """Get recent stock data using yfinance with rate limiting and exponential backoff"""
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         
+        # Check if we need to wait before making a new request
+        current_time = time.time()
+        if symbol in self.request_timestamps:
+            last_request_time = self.request_timestamps[symbol]
+            time_since_last_request = current_time - last_request_time
+            if time_since_last_request < self.min_request_interval:
+                wait_time = self.min_request_interval - time_since_last_request
+                time.sleep(wait_time)
+        
         for attempt in range(self.max_retries):
             try:
+                # Calculate exponential backoff delay
+                delay = min(self.base_delay * (2 ** attempt), self.max_delay)
+                if attempt > 0:
+                    # Add jitter to prevent thundering herd
+                    delay += random.uniform(0, 1)
+                    st.warning(f"Waiting {delay:.1f} seconds before retry {attempt + 1}...")
+                    time.sleep(delay)
+                
                 stock = yf.Ticker(symbol)
                 df = stock.history(
                     start=start_date.strftime('%Y-%m-%d'),
@@ -44,31 +65,32 @@ class StockPredictor:
                 )
                 
                 if not df.empty:
+                    # Update request timestamp
+                    self.request_timestamps[symbol] = time.time()
                     return df
                 
-                st.warning(f"Attempt {attempt + 1}: No data found for {symbol}, retrying...")
-                time.sleep(2)  # Wait 2 seconds between attempts
+                st.warning(f"Attempt {attempt + 1}: No data found for {symbol}")
                 
             except Exception as e:
-                st.warning(f"Attempt {attempt + 1} failed: {str(e)}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(2)  # Wait before retrying
+                error_message = str(e)
+                if "Too Many Requests" in error_message:
+                    st.warning(f"Rate limited. Waiting longer before retry {attempt + 1}...")
+                    time.sleep(delay * 2)  # Double the delay for rate limits
+                else:
+                    st.warning(f"Attempt {attempt + 1} failed: {error_message}")
                 continue
         
-        # If all attempts fail, try alternative data source
+        # If all attempts fail, try using cached data if available
         try:
-            st.info("Trying alternative data source...")
-            # Using pandas_datareader as backup
-            import pandas_datareader as pdr
-            df = pdr.get_data_yahoo(
-                symbol,
-                start=start_date,
-                end=end_date
-            )
-            if not df.empty:
-                return df
+            cache_file = f'cache/{symbol}_data.csv'
+            if os.path.exists(cache_file):
+                st.info("Using cached data...")
+                df = pd.read_csv(cache_file, index_col=0, parse_dates=True)
+                df = df[start_date:end_date]
+                if not df.empty:
+                    return df
         except Exception as e:
-            st.error(f"Alternative source failed: {str(e)}")
+            st.error(f"Cache failed: {str(e)}")
         
         return pd.DataFrame()  # Return empty DataFrame if all attempts fail
 

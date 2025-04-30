@@ -33,7 +33,7 @@ ENV/
 data/users.json
 
 # Models (if they're too large)
-# models/*.h5
+models/*.h5
 
 # IDE
 .idea/
@@ -44,3 +44,11 @@ data/users.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Configuration
+config.py
+.env
+
+# Logs
+*.log
+logs/
